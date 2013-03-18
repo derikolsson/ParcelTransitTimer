@@ -3,8 +3,8 @@ PostMasterTransitTime
 
 ## Requirements ##
 * [Postmaster.io API key](http://postmaster.io)
-* **Origins.txt** - A file containing source ZIPs
-* **Destinations.txt** - A file containing destination ZIPs
+* **Origins.txt** - A file containing source ZIPs (one per line)
+* **Destinations.txt** - A file containing destination ZIPs (one per line)
 
 ## What it Does ##
 1. Maps origins columns, destinations to rows
