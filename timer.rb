@@ -1,6 +1,9 @@
 #!/usr/bin/env ruby
 require 'optparse'
 require 'csv'
+require 'rubygems'
+require 'typhoeus'
+require 'json'
 
 version = "0.7.0-alpha"
 
@@ -24,6 +27,17 @@ optparse = OptionParser.new do |opts|
 
   opts.on('-b','--b FILE', 'Bypass File (CSV) - Save API calls!') do |byp|
     options[:byp] = byp
+  end
+
+  options[:carr] = "ups"
+  opts.on('-c', '--carrier STRING', 'Which carrier? (fedex,ups,usps - default: ups)') do |carr|
+    validCarriers = ["fedex","ups","usps"]
+    if(validCarriers.include?(carr.downcase))
+      options[:carr] = carr
+    else
+      puts "Invalid carrier: " + carr.downcase + "\nValid Options: #{validCarriers.join(', ')}"
+      exit
+    end
   end
   
   opts.on('-o', '--out FILE', 'Output file (CSV)') do |x|
@@ -79,6 +93,10 @@ dests = dests.uniq
 puts "Destinations: " + dests.to_s
 exit
 
+# Bypass shit will go here, later
+
+
+# Run queries
 
 
 
