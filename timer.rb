@@ -91,48 +91,65 @@ IO.foreach(options[:dest]) do |line|
 end
 dests = dests.uniq
 puts "Destinations: " + dests.to_s
-exit
 
 # Bypass shit will go here, later
 
-
-# Run queries
-
-
-
-
-filename = options[:csv].to_s
-unless filename.include? '.csv'
-  filename = filename + ".csv"
+# String to Integer function - Credit to Niklas B. on StackOverflow: http://stackoverflow.com/a/10332716
+def try_to_i(str, default = nil)
+  str =~ /^-?\d+$/ ? str.to_i : default
 end
-file = File.new(filename, 'r')
-if options[:out].empty?
-  name = File.basename(filename, ".csv")
-else
-  name = File.basename(options[:out].to_s, ".xml")
+
+# Obtain Data
+hydra = Typhoeus::Hydra.new
+times = Hash.new{ |h,k| h[k] = Hash.new(&h.default_proc) }
+dow_today = try_to_i((Time.now).strftime("%u"))
+dests.each do |dest|
+  origins.each do |orig|
+    req = Typhoeus::Request.new("https://api.postmaster.io/v1/times",
+      :body => {
+        :from_zip => orig,
+        :to_zip => dest,
+        :weight => 1.0,
+        :carrier => options[:carr],
+        :commercial => TRUE
+      },
+      :method => :post,
+      :userpwd => options[:key])
+    req.on_complete do |res|
+      dtime = 0
+      out = JSON.parse(res.body)
+      out["services"].each do |svc|
+        if(svc["service"]=="GROUND")
+          dtime = svc["delivery_timestamp"]
+        end
+      end
+      puts "\n" + orig + "-" + dest + ": " + Time.at(dtime).strftime("%u") + " " + Time.at(dtime).to_s
+      dow_fin = try_to_i(Time.at(dtime).strftime("%u"))
+      if(dow_fin > 5)
+        dow_fin = 1
+      end
+      tt = dow_fin-dow_today
+      if(tt<1)
+        tt = tt + 5
+      end
+      times[dest][orig] = tt
+    end
+    hydra.queue(req)
+  end
 end
-brand = options[:brand].upcase
+hydra.run # Hold onto your pants!
 
-puts "VTV Project Builder " + version + "\nAuthor: Derik Olsson <derik@derikolsson.com>"
-puts "Building FCP project file \"" + name + ".xml\" with " + brand + " graphics..."
-
-myStr = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE xmeml>\n<xmeml version=\"4\">\n";
-file.each_line("\n") do |row|
-  columns = row.split(",")
-  myStr << "<sequence>
-  <name>"+columns[0].chomp(".mov")+"</name>
-  <clipitem id=\""+brand+"169 \">
-  <name>"+brand+"169</name>
-</sequence>\n"
+# File string preparation
+myStr = "dest,"+origins.join(",")
+dests.each do |dest|
+  myStr = myStr + "\n" + dest + ","
+  origins.each do |orig|
+    myStr = myStr + times[dest][orig].to_s + ","
+  end
+  myStr = myStr.chomp(",")
 end
-myStr << "\n</xmeml>"
 
-if options[:out].empty?
-  aFile = File.new(name+".xml", "w")
-else
-  aFile = File.new(options[:out].to_s, "w")
-end
-aFile.write(myStr)
-aFile.close
-
-puts "Finished!"
+# Write to file
+outFile = File.new(options[:out].to_s,"w")
+outFile.write(myStr)
+outFile.close
