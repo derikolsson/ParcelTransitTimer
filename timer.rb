@@ -102,6 +102,7 @@ end
 # Obtain Data
 hydra = Typhoeus::Hydra.new
 times = Hash.new{ |h,k| h[k] = Hash.new(&h.default_proc) }
+apiCalls = 0
 dow_today = try_to_i((Time.now).strftime("%u"))
 dests.each do |dest|
   origins.each do |orig|
@@ -116,25 +117,41 @@ dests.each do |dest|
       :method => :post,
       :userpwd => options[:key])
     req.on_complete do |res|
-      dtime = 0
-      out = JSON.parse(res.body)
-      out["services"].each do |svc|
-        if(svc["service"]=="GROUND")
-          dtime = svc["delivery_timestamp"]
+      if res.success?
+        dtime = 0
+        out = JSON.parse(res.body)
+        unless out.has_key?("services")
+          puts "ERROR: \n" + out.to_s
         end
+        out["services"].each do |svc|
+          if(svc["service"]=="GROUND")
+            dtime = svc["delivery_timestamp"]
+          end
+        end
+        dow_fin = try_to_i(Time.at(dtime).strftime("%u"))
+        if(dow_fin > 5)
+          dow_fin = 1
+        end
+        tt = dow_fin-dow_today
+        if(tt<1)
+          tt = tt + 5
+        end
+        times[dest][orig] = tt
+      elsif res.timed_out?
+        puts "Timed out"
+        exit
+      elsif res.code == 0
+        puts "ERROR: Could not get an HTTP response"
+        exit
+      else
+        puts "HTTP Request Failed: " + res.code.to_s
+        exit
       end
-      puts "\n" + orig + "-" + dest + ": " + Time.at(dtime).strftime("%u") + " " + Time.at(dtime).to_s
-      dow_fin = try_to_i(Time.at(dtime).strftime("%u"))
-      if(dow_fin > 5)
-        dow_fin = 1
-      end
-      tt = dow_fin-dow_today
-      if(tt<1)
-        tt = tt + 5
-      end
-      times[dest][orig] = tt
     end
-    hydra.queue(req)
+    unless options[:test]
+      hydra.queue(req)
+      apiCalls = apiCalls + 1
+    end
   end
 end
 hydra.run # Hold onto your pants!
@@ -153,3 +170,6 @@ end
 outFile = File.new(options[:out].to_s,"w")
 outFile.write(myStr)
 outFile.close
+
+puts "Success! Transit times written to "+options[:out]+"\nAPI Calls: "+apiCalls.to_s
+exit
