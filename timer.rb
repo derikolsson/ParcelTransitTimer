@@ -150,26 +150,29 @@ dests.each do |dest|
     end
     unless options[:test]
       hydra.queue(req)
-      apiCalls = apiCalls + 1
     end
+    apiCalls = apiCalls + 1
   end
 end
-hydra.run # Hold onto your pants!
+unless options[:test]
+  hydra.run # Hold onto your pants!
 
-# File string preparation
-myStr = "dest,"+origins.join(",")
-dests.each do |dest|
-  myStr = myStr + "\n" + dest + ","
-  origins.each do |orig|
-    myStr = myStr + times[dest][orig].to_s + ","
+  # File string preparation
+  myStr = "dest,"+origins.join(",")
+  dests.each do |dest|
+    myStr = myStr + "\n" + dest + ","
+    origins.each do |orig|
+      myStr = myStr + times[dest][orig].to_s + ","
+    end
+    myStr = myStr.chomp(",")
   end
-  myStr = myStr.chomp(",")
+
+  # Write to file
+  outFile = File.new(options[:out].to_s,"w")
+  outFile.write(myStr)
+  outFile.close
+
+  puts "Success! Transit times written to "+options[:out]+"\n"
 end
-
-# Write to file
-outFile = File.new(options[:out].to_s,"w")
-outFile.write(myStr)
-outFile.close
-
-puts "Success! Transit times written to "+options[:out]+"\nAPI Calls: "+apiCalls.to_s
+puts "API Calls: "+apiCalls.to_s
 exit
