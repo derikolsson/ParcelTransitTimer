@@ -25,7 +25,7 @@ optparse = OptionParser.new do |opts|
     options[:dest] = dest
   end
 
-  opts.on('-b','--b FILE', 'Bypass File (CSV) - Save API calls!') do |byp|
+  opts.on('-b','--bypass FILE', 'Bypass File (CSV) - Save API calls!') do |byp|
     options[:byp] = byp
   end
 
