@@ -82,19 +82,22 @@ load "states.rb"
 
 # Origins to Array
 origins = Array.new;
-IO.foreach(options[:orig]) do |line|
+text=File.open(options[:orig]).read
+text.gsub!(/\r\n?/, "\n")
+text.each_line do |line|
   origins << line.strip
 end
 origins = origins.uniq
-puts "Origins: " + origins.to_s
 
 # Destinations to Array
 dests = Array.new;
-IO.foreach(options[:dest]) do |line|
+
+text=File.open(options[:dest]).read
+text.gsub!(/\r\n?/, "\n")
+text.each_line do |line|
   dests << line.strip
 end
 dests = dests.uniq
-puts "Destinations: " + dests.to_s
 
 # Bypass shit will go here, later
 if options[:byp]
@@ -109,6 +112,8 @@ def try_to_i(str, default = nil)
   str =~ /^-?\d+$/ ? str.to_i : default
 end
 
+i = 0
+
 # Obtain Data
 hydra = Typhoeus::Hydra.new
 times = Hash.new{ |h,k| h[k] = Hash.new(&h.default_proc) }
@@ -116,12 +121,16 @@ apiCalls = 0
 dow_today = try_to_i((Time.now).strftime("%u"))
 dests.each do |dest|
   origins.each do |orig|
+    i = i + 1
     switch = 0
     if bypass
       if bypass.has_key?(orig)
         dstate = @statezips[dest[0,3]]
         unless bypass[orig][dstate.upcase].empty?
           times[dest][orig] = bypass[orig][dstate.upcase]
+          unless options[:test]
+            puts orig.to_s + "->" + dest.to_s + " MATCHED! " + bypass[orig][dstate.upcase].to_s + " day(s)"
+          end
         else
           switch = switch + 1
         end
@@ -163,15 +172,13 @@ dests.each do |dest|
             tt = tt + 5
           end
           times[dest][orig] = tt
+          puts orig.to_s + "->" + dest.to_s + " in "+tt.to_s+" business day(s)"
         elsif res.timed_out?
-          puts "Timed out"
-          exit
+          puts orig.to_s + "->" + dest.to_s + " - Timed out"
         elsif res.code == 0
-          puts "ERROR: Could not get an HTTP response"
-          exit
+          puts orig.to_s + "->" + dest.to_s + " - ERROR: Could not get an HTTP response"
         else
-          puts "HTTP Request Failed: " + res.code.to_s
-          exit
+          puts orig.to_s + "->" + dest.to_s + " - HTTP Request Failed: " + res.code.to_s
         end
       end
       unless options[:test]
