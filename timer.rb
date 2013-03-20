@@ -48,6 +48,8 @@ optparse = OptionParser.new do |opts|
     options[:test] = test
   end
 
+  # Verbose Option will go here
+
   opts.on('-h', '--help', 'Display this screen') do
     puts opts
     exit
@@ -75,6 +77,10 @@ rescue OptionParser::InvalidOption, OptionParser::MissingArgument
   puts optparse
   exit
 end
+
+load "states.rb"
+p @statezips
+exit
 
 # Origins to Array
 origins = Array.new;
