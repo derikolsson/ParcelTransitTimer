@@ -48,7 +48,7 @@ optparse = OptionParser.new do |opts|
     options[:test] = test
   end
 
-  # Verbose Option will go here
+  # Verbose Option will go here, someday
 
   opts.on('-h', '--help', 'Display this screen') do
     puts opts
@@ -79,8 +79,6 @@ rescue OptionParser::InvalidOption, OptionParser::MissingArgument
 end
 
 load "states.rb"
-p @statezips
-exit
 
 # Origins to Array
 origins = Array.new;
@@ -99,6 +97,12 @@ dests = dests.uniq
 puts "Destinations: " + dests.to_s
 
 # Bypass shit will go here, later
+if options[:byp]
+  bypass = Hash.new{ |h,k| h[k] = Hash.new(&h.default_proc) }
+  CSV.foreach(options[:byp], :headers => true) do |row|
+    bypass[row["zip"]][row["state"]] = row["days"]
+  end
+end
 
 # String to Integer function - Credit to Niklas B. on StackOverflow: http://stackoverflow.com/a/10332716
 def try_to_i(str, default = nil)
@@ -112,52 +116,69 @@ apiCalls = 0
 dow_today = try_to_i((Time.now).strftime("%u"))
 dests.each do |dest|
   origins.each do |orig|
-    req = Typhoeus::Request.new("https://api.postmaster.io/v1/times",
-      :body => {
-        :from_zip => orig,
-        :to_zip => dest,
-        :weight => 1.0,
-        :carrier => options[:carr],
-        :commercial => TRUE
-      },
-      :method => :post,
-      :userpwd => options[:key])
-    req.on_complete do |res|
-      if res.success?
-        dtime = 0
-        out = JSON.parse(res.body)
-        unless out.has_key?("services")
-          puts "ERROR: \n" + out.to_s
+    switch = 0
+    if bypass
+      if bypass.has_key?(orig)
+        dstate = @statezips[dest[0,3]]
+        unless bypass[orig][dstate.upcase].empty?
+          times[dest][orig] = bypass[orig][dstate.upcase]
+        else
+          switch = switch + 1
         end
-        out["services"].each do |svc|
-          if(svc["service"]=="GROUND")
-            dtime = svc["delivery_timestamp"]
-          end
-        end
-        dow_fin = try_to_i(Time.at(dtime).strftime("%u"))
-        if(dow_fin > 5)
-          dow_fin = 1
-        end
-        tt = dow_fin-dow_today
-        if(tt<1)
-          tt = tt + 5
-        end
-        times[dest][orig] = tt
-      elsif res.timed_out?
-        puts "Timed out"
-        exit
-      elsif res.code == 0
-        puts "ERROR: Could not get an HTTP response"
-        exit
       else
-        puts "HTTP Request Failed: " + res.code.to_s
-        exit
+        switch = switch + 1
       end
+    else
+      switch = switch + 1
     end
-    unless options[:test]
-      hydra.queue(req)
+    if switch > 0
+      req = Typhoeus::Request.new("https://api.postmaster.io/v1/times",
+        :body => {
+          :from_zip => orig,
+          :to_zip => dest,
+          :weight => 1.0,
+          :carrier => options[:carr],
+          :commercial => TRUE
+        },
+        :method => :post,
+        :userpwd => options[:key])
+      req.on_complete do |res|
+        if res.success?
+          dtime = 0
+          out = JSON.parse(res.body)
+          unless out.has_key?("services")
+            puts "ERROR: \n" + out.to_s
+          end
+          out["services"].each do |svc|
+            if(svc["service"]=="GROUND")
+              dtime = svc["delivery_timestamp"]
+            end
+          end
+          dow_fin = try_to_i(Time.at(dtime).strftime("%u"))
+          if(dow_fin > 5)
+            dow_fin = 1
+          end
+          tt = dow_fin-dow_today
+          if(tt<1)
+            tt = tt + 5
+          end
+          times[dest][orig] = tt
+        elsif res.timed_out?
+          puts "Timed out"
+          exit
+        elsif res.code == 0
+          puts "ERROR: Could not get an HTTP response"
+          exit
+        else
+          puts "HTTP Request Failed: " + res.code.to_s
+          exit
+        end
+      end
+      unless options[:test]
+        hydra.queue(req)
+      end
+      apiCalls = apiCalls + 1
     end
-    apiCalls = apiCalls + 1
   end
 end
 unless options[:test]
