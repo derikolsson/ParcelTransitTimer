@@ -1,5 +1,11 @@
-PostMasterTransitTime
+ParcelTransitTimer
 =====================
+
+## Project Status ##
+* Not actively developed
+* May include some experimental features
+* Includes some incomplete features
+* In general, not suitable for active use, but available for forking / continual improvement
 
 ## Requirements ##
 * [Postmaster.io API key](http://postmaster.io)
