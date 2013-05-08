@@ -115,7 +115,7 @@ end
 i = 0
 
 # Obtain Data
-hydra = Typhoeus::Hydra.new
+hydra = Typhoeus::Hydra.new(max_concurrency: 10)
 times = Hash.new{ |h,k| h[k] = Hash.new(&h.default_proc) }
 apiCalls = 0
 dow_today = try_to_i((Time.now).strftime("%u"))
